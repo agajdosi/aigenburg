@@ -20,9 +20,6 @@ class GenerateHandler(tornado.web.RequestHandler):
         for k,v in params.items():
             params[k] = v[0].decode("utf-8")
         return params
-    
-    def get(self):
-        self.post()
 
     def set_default_headers(self):
         self.set_header("Access-Control-Allow-Origin", "*")
@@ -34,10 +31,24 @@ class GenerateHandler(tornado.web.RequestHandler):
         self.set_status(204)
         self.finish()
 
-    def post(self):        
+    def get(self):
+        """Just for testing purposes."""
+        self.post()
+
+    def post(self):
         global openai_client, phoenix_client
         self.set_default_headers()
-        params = self.args_to_dict()
+        
+        if self.request.method == "GET":
+            params = self.args_to_dict()
+        else:
+            try:
+                params = tornado.escape.json_decode(self.request.body)
+            except Exception as e:
+                self.set_status(400)
+                self.write(f"Invalid JSON body: {str(e)}")
+                return
+
         try:
             identifier = params.pop("prompt_identifier")
         except KeyError:
