@@ -37,16 +37,15 @@ func main() {
 	router.HandleFunc("/v1/complete", completeHandler)
 
 	server := &http.Server{
-		Addr:    ":14200",
+		Addr:    "localhost:14200",
 		Handler: router,
 	}
 
-	go func() {
-		log.Printf("Starting server on %s", server.Addr)
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Server error: %v", err)
-		}
-	}()
+	log.Printf("Starting server on http://%s", server.Addr)
+	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		log.Fatalf("Server error: %v", err)
+	}
+
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
@@ -55,6 +54,14 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func completeHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+	w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
 	w.WriteHeader(http.StatusNotImplemented)
 	w.Write([]byte("Not implemented yet"))
 }
