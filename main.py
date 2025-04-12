@@ -93,8 +93,8 @@ if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
         app,
-        host="localhost",
-        port=8888,
+        host=os.getenv("HOST", "127.0.0.1"),
+        port=os.getenv("PORT", 8888),
         reload=False
     )
 
