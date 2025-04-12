@@ -12,10 +12,17 @@ class IndexHandler(tornado.web.RequestHandler):
         self.write("OK")
 
 class GenerateHandler(tornado.web.RequestHandler):
-    def get(self):
+    def post(self):
         global openai_client, phoenix_client
-        prompt = phoenix_client.get_prompt(self.request.body)
-        self.write(prompt)
+        prompt_version = phoenix_client.prompts.get(prompt_identifier="echo")
+        print("Got prompt version: " + str(prompt_version.id))
+        self.write(str(prompt_version))
+
+        prompt_vars = {"message": "Hello, how are you?"}
+        formatted_prompt = prompt_version.format(variables=prompt_vars)
+
+        resp = openai_client.chat.completions.create(**formatted_prompt)
+        self.write(str(resp))
 
 
 def configure_clients():
