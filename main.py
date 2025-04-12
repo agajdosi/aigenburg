@@ -1,8 +1,11 @@
 import asyncio
+import logging
 import os
 import tornado
 from openai import OpenAI
 from phoenix.client import Client
+from phoenix.client.utils import template_formatters
+from httpx import HTTPStatusError
 
 openai_client: OpenAI
 phoenix_client: Client
@@ -12,19 +15,49 @@ class IndexHandler(tornado.web.RequestHandler):
         self.write("OK")
 
 class GenerateHandler(tornado.web.RequestHandler):
+    def args_to_dict(self) -> dict:
+        params = self.request.arguments
+        for k,v in params.items():
+            params[k] = v[0].decode("utf-8")
+        return params
+    
+    def get(self):
+        self.post()
+
     def post(self):
         global openai_client, phoenix_client
-        prompt_version = phoenix_client.prompts.get(prompt_identifier="echo")
-        print("Got prompt version: " + str(prompt_version.id))
-        self.write(str(prompt_version))
-
-        prompt_vars = {"message": "Hello, how are you?"}
-        formatted_prompt = prompt_version.format(variables=prompt_vars)
+        params = self.args_to_dict()
+        try:
+            identifier = params.pop("prompt_identifier")
+        except KeyError:
+            self.set_status(400)
+            self.write("prompt_identifier is required")
+            return
+        
+        try:
+            prompt_version = phoenix_client.prompts.get(prompt_identifier=identifier)
+        except HTTPStatusError as e:
+            self.set_status(e.response.status_code)
+            self.write(f"prompt_identifier not found. {str(e)}")
+            return
+        
+        logging.info("Got prompt version: " + str(prompt_version.id))
+        
+        # Format the prompt with the variables and request the LLM
+        try:
+            formatted_prompt = prompt_version.format(variables=params)
+            logging.info("Formatted prompt: " + str(formatted_prompt))
+        except template_formatters.TemplateFormatterError as e:
+            self.set_status(400)
+            self.write(f"Error formatting prompt: {str(e)}")
+            return
 
         resp = openai_client.chat.completions.create(**formatted_prompt)
-        self.write(str(resp))
+        resp_json = resp.model_dump_json()
+        logging.info("Response: " + resp_json)
+        self.write(resp_json)
 
-
+        
 def configure_clients():
     global openai_client, phoenix_client
     openai_api_key = os.getenv("OPENAI_API_KEY")
@@ -45,7 +78,10 @@ async def main():
     app = tornado.web.Application([
         (r"/", IndexHandler),
         (r"/v1/generate", GenerateHandler),
-    ])
+         ],
+        debug=os.getenv("DEBUG", "false") == "true",
+        autoreload=os.getenv("DEBUG", "false") == "true",
+    )
     app.listen(8888)
     await asyncio.Event().wait()
 
