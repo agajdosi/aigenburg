@@ -24,8 +24,19 @@ class GenerateHandler(tornado.web.RequestHandler):
     def get(self):
         self.post()
 
-    def post(self):
+    def set_default_headers(self):
+        self.set_header("Access-Control-Allow-Origin", "*")
+        self.set_header("Access-Control-Allow-Headers", "*")
+        self.set_header("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
+
+    def options(self):
+        self.set_default_headers()
+        self.set_status(204)
+        self.finish()
+
+    def post(self):        
         global openai_client, phoenix_client
+        self.set_default_headers()
         params = self.args_to_dict()
         try:
             identifier = params.pop("prompt_identifier")
