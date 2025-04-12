@@ -1,17 +1,18 @@
 # aigenburg
 
-aigenburg is a simple API to limit public unauthenticated access to LLM endpoints to only allowed prompts.
-It is designed to be used in conjuction with Arize Phoenix prompt management and monitoring system.
+**aigenburg** is a lightweight LLM API firewall designed to restrict unauthenticated public access to LLM (Large Language Model) endpoints, allowing only predefined and approved prompts.
+It is built to seamlessly integrate with the [Arize Phoenix](https://arize.com/phoenix/) prompt management and monitoring platform; and OpenAI-compatible APIs.
 
-## Design
+## How It Works
 
-1. Client calls the API with @arize/phoenix-client library, aigenburg is compliant with the Phoenix client library.
-2. aigenburg will use the prompt name or prompt id and get it from upstream Arize Phoenix server.
-3. If the prompt is defined, FirewallLLM will call the actual LLM API with the prompt (OpenAI style API is supported).
-4. The response from the LLM API is sent to the client.
+1. The client sends a request to generate text using a specific prompt, optionally including variable values.  
+2. aigenburg validates the request by fetching the prompt (by name or ID) from the upstream Arize Phoenix server.  
+3. If the prompt exists, it is considered authorized. aigenburg then forwards the request to the LLM API. OpenAI-compatible APIs are currently supported.  
+4. The response from the LLM API is returned to the client.
 
+## Development
 
-## Installation
+### Prerequisites
 
 ```
 pip install -r requirements.txt
@@ -24,10 +25,35 @@ pip install openai
 pip install arize-phoenix-client
 ```
 
-## Development
+### Run the application
 
 ```
-source .env
 source .venv/bin/activate
+OPENAI_API_KEY=your_openai_api_key \
+OPENAI_API_URL=your_openai_api_url \
+PHOENIX_API_KEY=your_phoenix_api_key \
+PHOENIX_API_URL=your_phoenix_api_url \
 python main.py
+```
+
+or ideally use a .env file to set the environment variables.
+```
+source .venv/bin/activate
+source .env
+python main.py
+```
+
+
+## Docker Image
+
+### Build and Run Docker Container
+```bash
+docker build --platform linux/amd64 -t ghcr.io/agajdosi/aigenburg:latest .
+docker run -d -p 8080:8080 ghcr.io/agajdosi/aigenburg:latest
+```
+
+### Build and Publish Docker Image
+```bash
+docker build --platform linux/amd64 -t ghcr.io/agajdosi/aigenburg:latest .
+docker push ghcr.io/agajdosi/aigenburg:latest
 ```
