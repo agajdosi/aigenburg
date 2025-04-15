@@ -57,7 +57,7 @@ async def index():
 
 class GenerateRequest(BaseModel):
     prompt_identifier: str
-    prompt_variables: Optional[Dict[str, Any]] = None
+    prompt_variables: Optional[Dict[str, str]] = None # Phoenix templater has problems with non-string values, so forcing the use of strings
 
 @app.post("/generate")
 async def generate(
