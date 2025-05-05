@@ -20,9 +20,10 @@ pip install -r requirements.txt
 
 or:
 ```
-pip install tornado
+pip install fastapi uvicorn
 pip install openai
 pip install arize-phoenix-client
+pip install arize-phoenix-otel openinference-instrumentation-openai
 ```
 
 ### Run the application

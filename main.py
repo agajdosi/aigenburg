@@ -1,13 +1,12 @@
-import logging
 import os
-from typing import Optional, Dict, Any
+from typing import Optional, Dict
 
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
 from openai import OpenAI
 from phoenix.client import Client
 from phoenix.client.utils import template_formatters
+from phoenix.otel import register
 from httpx import HTTPStatusError
 from pydantic import BaseModel
 
@@ -90,6 +89,14 @@ async def generate(
     return resp_json
 
 if __name__ == "__main__":
+    collector_endpoint = os.environ.get("PHOENIX_COLLECTOR_ENDPOINT")
+    if not collector_endpoint:
+        print("No Phoenix collector endpoint provided, skipping tracer configuration")
+    else:
+        project = os.environ.get("PHOENIX_OTEL_PROJECT", "aigenburg")
+        print(f"Configuring Phoenix tracer for {project} to endpoint {collector_endpoint}")
+        tracer_provider = register(project_name=project, auto_instrument=True)
+
     import uvicorn
     uvicorn.run(
         app,
