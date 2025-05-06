@@ -110,8 +110,6 @@ if __name__ == "__main__":
     else:
         project = os.environ.get("PHOENIX_OTEL_PROJECT", "aigenburg")
         print(f"Configuring Phoenix tracer for {project} to endpoint {collector_endpoint}")
-        tracer_provider = register(project_name=project, auto_instrument=True)
-        #tracer = tracer_provider.get_tracer(__name__)
 
     import uvicorn
     uvicorn.run(
