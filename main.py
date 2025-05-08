@@ -68,23 +68,34 @@ async def generate(
     openai_client: OpenAI = Depends(get_openai_client),
     phoenix_client: Client = Depends(get_phoenix_client)
 ):
-    """Generate a response for a latest prompt version, filled with the provided variables."""
+    """Request LLM to generate a response based on a prompt template filled with the provided variables.
+    Prompt template is defined by identifier (aka name of the prompt).
+    If prompt_latest is True, the latest version of the prompt is used (tag is ignored).
+    Otherwise prompt_tag is used to specify the version of the prompt (tag 'production' is used if tag is not provided).
+    """
+    prompt_identifier = request.prompt_identifier
+    prompt_variables = request.prompt_variables
+    prompt_tag = getattr(request, "prompt_tag", "production")
+    prompt_latest = getattr(request, "prompt_latest", False)
     tracer = trace.get_tracer(__name__)
-    with tracer.start_as_current_span(request.prompt_identifier) as span:
+    with tracer.start_as_current_span(f"{prompt_identifier} ({prompt_tag})") as span:
         span.set_attribute(SpanAttributes.OPENINFERENCE_SPAN_KIND, OpenInferenceSpanKindValues.CHAIN.value)
-        span.set_attribute(SpanAttributes.INPUT_VALUE, json.dumps(request.prompt_variables))
+        span.set_attribute(SpanAttributes.INPUT_VALUE, json.dumps(prompt_variables))
         try:
-            prompt_version = phoenix_client.prompts.get(prompt_identifier=request.prompt_identifier)
+            if prompt_latest is True:
+                prompt_version = phoenix_client.prompts.get(prompt_identifier=prompt_identifier)
+            else:
+                prompt_version = phoenix_client.prompts.get(prompt_identifier=prompt_identifier, tag=prompt_tag)
             span.set_attribute("prompt.version_id", str(prompt_version.id))
                 
         except HTTPStatusError as e:
-            detail = f"prompt_identifier not found. {str(e)}"
+            detail = f"Prompt under identifier {prompt_identifier} not found. {str(e)}"
             span.set_status(Status(StatusCode.ERROR), f"{detail} ({e.response.status_code})")
             raise HTTPException(
                 status_code=e.response.status_code,
                 detail=detail
             )
-            
+        
         # Format the prompt with the variables and request the LLM
         try:
             formatted_prompt = prompt_version.format(variables=request.prompt_variables or {})
