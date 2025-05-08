@@ -60,7 +60,9 @@ async def index():
 
 class GenerateRequest(BaseModel):
     prompt_identifier: str
-    prompt_variables: Optional[Dict[str, str]] = None # Phoenix templater has problems with non-string values, so forcing the use of strings
+    prompt_variables: Dict[str, str] = {} # Phoenix templater has problems with non-string values, so forcing the use of strings
+    prompt_tag: str = "production"
+    prompt_latest: bool = False
 
 @app.post("/generate")
 async def generate(
@@ -73,23 +75,23 @@ async def generate(
     If prompt_latest is True, the latest version of the prompt is used (tag is ignored).
     Otherwise prompt_tag is used to specify the version of the prompt (tag 'production' is used if tag is not provided).
     """
-    prompt_identifier = request.prompt_identifier
-    prompt_variables = request.prompt_variables
-    prompt_tag = getattr(request, "prompt_tag", "production")
-    prompt_latest = getattr(request, "prompt_latest", False)
+    identifier = request.prompt_identifier
+    variables = request.prompt_variables
+    tag = request.prompt_tag
+    latest = request.prompt_latest
     tracer = trace.get_tracer(__name__)
-    with tracer.start_as_current_span(f"{prompt_identifier} ({prompt_tag})") as span:
+    with tracer.start_as_current_span(f"{identifier} ({tag})") as span:
         span.set_attribute(SpanAttributes.OPENINFERENCE_SPAN_KIND, OpenInferenceSpanKindValues.CHAIN.value)
-        span.set_attribute(SpanAttributes.INPUT_VALUE, json.dumps(prompt_variables))
+        span.set_attribute(SpanAttributes.INPUT_VALUE, json.dumps(variables))
         try:
-            if prompt_latest is True:
-                prompt_version = phoenix_client.prompts.get(prompt_identifier=prompt_identifier)
+            if latest is True:
+                prompt_version = phoenix_client.prompts.get(prompt_identifier=identifier)
             else:
-                prompt_version = phoenix_client.prompts.get(prompt_identifier=prompt_identifier, tag=prompt_tag)
+                prompt_version = phoenix_client.prompts.get(prompt_identifier=identifier, tag=tag)
             span.set_attribute("prompt.version_id", str(prompt_version.id))
                 
         except HTTPStatusError as e:
-            detail = f"Prompt under identifier {prompt_identifier} not found. {str(e)}"
+            detail = f"Prompt under identifier {identifier} not found. {str(e)}"
             span.set_status(Status(StatusCode.ERROR), f"{detail} ({e.response.status_code})")
             raise HTTPException(
                 status_code=e.response.status_code,
@@ -98,7 +100,7 @@ async def generate(
         
         # Format the prompt with the variables and request the LLM
         try:
-            formatted_prompt = prompt_version.format(variables=request.prompt_variables or {})
+            formatted_prompt = prompt_version.format(variables=variables)
         except template_formatters.TemplateFormatterError as e:
             detail = f"Error formatting prompt: {str(e)}"
             span.set_status(Status(StatusCode.ERROR), detail)
